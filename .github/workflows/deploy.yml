@@ -1,7 +1,7 @@
 name: Publicar en GitHub Pages
 
-# Cada push a main publica la app. El CIP es un solo HTML, así que no hay
-# compilación: se sube la carpeta tal cual.
+# Cada push a main publica la app. El CIP no se compila: son archivos sueltos
+# que se suben tal cual.
 on:
   push:
     branches: [main]
@@ -30,12 +30,27 @@ jobs:
           mkdir -p publicar
           cp index.html publicar/index.html
           cp -r js publicar/js
-          # GitHub Pages sirve los archivos con diez minutos de cache, asi que
-          # un config.js nuevo no llegaba al navegador hasta que vencia. Se le
-          # pega el commit a cada script: cambia la direccion y se baja solo.
-          sed -i "s|js/config.js|js/config.js?v=${GITHUB_SHA::8}|; s|js/nube.js|js/nube.js?v=${GITHUB_SHA::8}|" publicar/index.html
+          cp -r lib publicar/lib
+          cp -r css publicar/css
           # sin esto GitHub Pages esconde las carpetas que empiezan con _
           touch publicar/.nojekyll
+
+      # GitHub Pages sirve los archivos con diez minutos de caché, así que un
+      # archivo nuevo no le llegaba al navegador hasta que vencía. Se le pega
+      # el commit a cada uno: cambia la dirección y se baja solo.
+      - name: Sellar los archivos con el commit
+        run: |
+          python3 - "$GITHUB_SHA" <<'PY'
+          import re, sys
+          v = sys.argv[1][:8]
+          p = 'publicar/index.html'
+          html = open(p, encoding='utf-8').read()
+          # solo lo nuestro: lo que venga de un CDN se deja como está
+          html = re.sub(r'(?<=["\'])((?:js|css|lib)/[^"\']+?\.(?:js|css))(?=["\'])',
+                        lambda m: m.group(1) + '?v=' + v, html)
+          open(p, 'w', encoding='utf-8').write(html)
+          print('sellados con', v)
+          PY
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
