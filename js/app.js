@@ -3876,6 +3876,12 @@ function fillModelosCIP(linea) {
   actualizarCamposLinea();
 }
 function actualizarCamposLinea() {
+  // El EXP padre solo tiene sentido si la OC es complemento de otro
+  // expediente; si no, estorba y además invita a llenarlo por error.
+  const epw = document.getElementById('f-exp-padre-wrap');
+  if (epw) epw.style.display = STATE.ocAdicional ? '' : 'none';
+  const ep = document.getElementById('f-exp-padre');
+  if (ep && document.activeElement !== ep) ep.value = STATE.expPadre || '';
   const rw = document.getElementById('f-refuerzo-wrap');
   if (rw) rw.style.display = (STATE.modelo === 'REFORZADO') ? '' : 'none';
   const crw = document.getElementById('f-cortes-ref-wrap');
@@ -3984,6 +3990,9 @@ $('area-chips') && $('area-chips').addEventListener('click', e => {
 });
 $('f-oc-adicional').addEventListener('change', e => {
   STATE.ocAdicional = (e.target.value === 'true');
+  // si deja de ser adicional, no hay padre que valga
+  if (!STATE.ocAdicional) STATE.expPadre = '';
+  actualizarCamposLinea();
   renderAll();
 });
 $('f-exp-padre').addEventListener('input', e => { STATE.expPadre = e.target.value; });
@@ -5372,6 +5381,7 @@ function loadDemo() {
   $('f-oc-total').value = STATE.ocTotal;
   if ($('f-refuerzo')) $('f-refuerzo').value = STATE.refuerzo;
   if ($('f-oc-adicional')) $('f-oc-adicional').value = String(STATE.ocAdicional);
+  actualizarCamposLinea();
   if ($('f-refuerzo-wrap')) $('f-refuerzo-wrap').style.display = (STATE.modelo === 'REFORZADO') ? '' : 'none';
 
   renderAll();
