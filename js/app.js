@@ -4022,6 +4022,9 @@ $('vlist').addEventListener('click', e => {
       id: uid(), tipo, codigo: code,
       ancho: nuevoAncho, alto: nuevoAlto,
       cant: 1, detalle: 'manual', flag: false,
+      // sin esto la fila nueva cae en 'Área 1' y desaparece de la vista
+      // cuando se está capturando en otra área
+      area: STATE.areaActual || 'Área 1',
     });
     renderAll();
     // Foco en el input ancho de la nueva fila para que el usuario escriba
