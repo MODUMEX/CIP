@@ -245,15 +245,20 @@
   const css = `
     .cip-tapa{position:fixed;inset:0;z-index:99999;background:var(--bg,#07090d);
       display:flex;align-items:center;justify-content:center;padding:20px}
-    .cip-entrar{width:100%;max-width:380px;background:var(--panel,#0f1420);
-      border:1px solid var(--line,#1c2536);border-radius:12px;padding:26px;
+    .cip-entrar{width:100%;max-width:480px;background:var(--panel,#0f1420);
+      border:1px solid var(--line,#1c2536);border-radius:16px;padding:44px 42px;
       box-shadow:0 20px 60px rgba(0,0,0,.6)}
-    .cip-entrar h2{margin:0 0 4px;font-size:1.1rem;color:var(--cyan,#00e5ff);letter-spacing:.5px}
-    .cip-entrar p{margin:0 0 18px;color:var(--text-dim,#7d8aa0);font-size:.82rem}
-    .cip-entrar .cip-logo{display:block;width:170px;margin:0 auto 20px;opacity:.95}
-    .cip-entrar input{width:100%;box-sizing:border-box;margin-bottom:10px;padding:.6rem .7rem;
-      border:1px solid var(--line,#1c2536);border-radius:7px;background:var(--bg,#07090d);
-      color:var(--text,#d8e3f3);font-size:.9rem;font-family:inherit}
+    /* en px y no en rem: la aplicación pone el tamaño base en 13px y acá las
+       medidas relativas se quedan cortas */
+    .cip-entrar h2{margin:0 0 8px;font-size:25px;color:var(--cyan,#00e5ff);letter-spacing:.5px}
+    .cip-entrar p{margin:0 0 28px;color:var(--text-dim,#7d8aa0);font-size:14px;line-height:1.55}
+    .cip-entrar .cip-logo{display:block;width:220px;margin:0 auto 32px;opacity:.95}
+    .cip-entrar input{width:100%;box-sizing:border-box;margin-bottom:14px;padding:14px 16px;
+      border:1px solid var(--line,#1c2536);border-radius:9px;background:var(--bg,#07090d);
+      color:var(--text,#d8e3f3);font-size:15px;font-family:inherit}
+    /* solo el botón de entrar crece; el .cip-btn de las tablas se queda igual */
+    .cip-entrar .cip-btn.ancho{margin-top:8px;padding:14px;font-size:15px;border-radius:9px}
+    .cip-entrar .cip-aviso{font-size:14px;padding:12px 14px}
     .cip-entrar input:focus{outline:0;border-color:var(--cyan-dim,#007a8a)}
     .cip-btn{border:1px solid var(--cyan-dim,#007a8a);border-radius:7px;padding:.5rem .9rem;
       font-weight:600;cursor:pointer;background:transparent;color:var(--cyan,#00e5ff);
