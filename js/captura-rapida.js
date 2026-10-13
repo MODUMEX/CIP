@@ -78,6 +78,12 @@
     const caja = el('cr-vista')
     if (!caja) return
     const d = loQueHay()
+    // si se escribió el código completo de otra familia, se mueve el botón
+    // marcado: lo resaltado tiene que ser siempre lo que se va a agregar
+    if (d.codigo && TIPO_BY_CODE[d.codigo] !== familia) {
+      familia = TIPO_BY_CODE[d.codigo]
+      pintarFamilias()
+    }
     if (!d.codigo) {
       caja.className = 'cr-vista floja'
       caja.textContent = valor('cr-codigo') ? 'Ese tipo no existe' : 'Escribí el tipo y dale Enter'
@@ -159,6 +165,11 @@
     avisar(cantidad + ' × ' + d.codigo + ' ' + (d.ancho || '—') + '×' + d.alto + ' en ' + area)
     senalarFila(d.codigo, d.ancho, d.alto)
 
+    // El tipo y la cantidad se limpian: así se ve que la pieza entró y no
+    // queda en pantalla una línea que parece sin agregar. Las medidas sí se
+    // quedan, que es lo que de verdad se repite de una pieza a la siguiente.
+    if (el('cr-codigo')) el('cr-codigo').value = ''
+    if (el('cr-cant')) el('cr-cant').value = '1'
     if (el('cr-ancho')) { el('cr-ancho').focus(); el('cr-ancho').select() }
     previsualizar()
   }
@@ -298,7 +309,7 @@
       '  <span id="cr-vista" class="cr-vista floja"></span>',
       '</div>',
       '<div class="cr-pie">',
-      '  <span class="cr-ayuda">Enter agrega y deja las medidas puestas · ',
+      '  <span class="cr-ayuda">Enter agrega: el tipo se limpia y las medidas se quedan · ',
       '    o escribí todo junto en la primera casilla: <b>70 150 ader 10</b></span>',
       '  <span id="cr-aviso" class="cr-aviso"></span>',
       '</div>',
