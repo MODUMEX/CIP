@@ -36,6 +36,16 @@
    */
   const estado = () => (typeof STATE !== 'undefined' ? STATE : window.STATE)
 
+  /**
+   * A los cuántos minutos sin tocar nada se cierra sola.
+   *
+   * El CIP se usa en computadoras COMPARTIDAS de planta: si la sesión no se
+   * cierra, el siguiente que se sienta entra con la cuenta del anterior. El
+   * reloj se reinicia con cualquier clic o tecla, así que a nadie le corta el
+   * trabajo mientras está trabajando.
+   */
+  const MINUTOS_INACTIVO = 60
+
   const CLAVE_SESION = 'cip-sesion'
   let sesion = null
   try {
@@ -236,11 +246,60 @@
       if (r.ok) {
         tapa.remove()
         prepararPestana()
+        ponerSalirArriba()
+        vigilarInactividad()
       } else {
         tapa.querySelector('#cip-login-msg').innerHTML = `<div class="cip-aviso">${r.mensaje}</div>`
       }
     })
     setTimeout(() => tapa.querySelector('#cip-email')?.focus(), 50)
+  }
+
+  // ───────────────────────────────────────────────── salir
+
+  /**
+   * Salir tiene que estar SIEMPRE a la vista. Estaba solo adentro de la
+   * pestaña 04 y desde las otras tres no había forma de cerrar la sesión.
+   */
+  function ponerSalirArriba() {
+    if (document.getElementById('cip-salir-top')) return
+    const acciones = document.querySelector('.topbar-actions')
+    if (!acciones) return
+    const caja = el(
+      '<span id="cip-salir-top" style="display:flex;gap:8px;align-items:center">' +
+        '<span id="cip-quien-top" style="color:var(--text-dim,#7d8aa0);font-size:.72rem"></span>' +
+        '<button class="cip-btn gris" id="cip-salir-btn" title="Cerrar sesión">Salir</button>' +
+      '</span>',
+    )
+    acciones.appendChild(caja)
+    caja.querySelector('#cip-quien-top').textContent = sesion?.email || ''
+    caja.querySelector('#cip-salir-btn').onclick = salir
+  }
+
+  function salir() {
+    guardarSesion(null)
+    abiertoId = null
+    document.getElementById('cip-salir-top')?.remove()
+    tapar()
+  }
+
+  /** se cierra sola si nadie toca nada; cualquier clic o tecla reinicia el reloj */
+  let reloj = null
+  function vigilarInactividad() {
+    const reiniciar = () => {
+      clearTimeout(reloj)
+      if (!sesion) return
+      reloj = setTimeout(() => {
+        if (!sesion) return
+        salir()
+        const m = document.querySelector('.cip-entrar #cip-login-msg')
+        if (m) m.innerHTML = '<div class="cip-aviso">La sesión se cerró sola por inactividad.</div>'
+      }, MINUTOS_INACTIVO * 60 * 1000)
+    }
+    for (const ev of ['click', 'keydown', 'pointerdown', 'wheel']) {
+      document.addEventListener(ev, reiniciar, { passive: true })
+    }
+    reiniciar()
   }
 
   // ───────────────────────────────────────────────── pestaña 04
@@ -268,7 +327,6 @@
         <button class="cip-btn gris" id="cip-guardar-nuevo">Guardar como nuevo</button>
         <span style="flex:1"></span>
         <span id="cip-quien" style="color:var(--text-dim,#7d8aa0);font-size:.78rem"></span>
-        <button class="cip-btn gris" id="cip-salir">Salir</button>
       </div>
       <div id="cip-lista">Consultando…</div>
       <div id="cip-msg"></div>
@@ -291,11 +349,6 @@
     })
 
     panel.querySelector('#cip-quien').textContent = sesion?.email || ''
-    panel.querySelector('#cip-salir').onclick = () => {
-      guardarSesion(null)
-      abiertoId = null
-      tapar()
-    }
     panel.querySelector('#cip-guardar').onclick = () => void guardarDesdePantalla(abiertoId)
     panel.querySelector('#cip-guardar-nuevo').onclick = () => void guardarDesdePantalla(null)
   }
@@ -402,8 +455,13 @@
 
   function arrancar() {
     estilos()
-    if (sesion) prepararPestana()
-    else tapar()
+    if (sesion) {
+      prepararPestana()
+      ponerSalirArriba()
+      vigilarInactividad()
+    } else {
+      tapar()
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar)
