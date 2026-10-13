@@ -39,17 +39,26 @@
   /**
    * A los cuántos minutos sin tocar nada se cierra sola.
    *
-   * El CIP se usa en computadoras COMPARTIDAS de planta: si la sesión no se
-   * cierra, el siguiente que se sienta entra con la cuenta del anterior. El
-   * reloj se reinicia con cualquier clic o tecla, así que a nadie le corta el
-   * trabajo mientras está trabajando.
+   * Va además de que la sesión no sobreviva a la pestaña: una pestaña abierta
+   * y olvidada toda la tarde queda igual de expuesta. El reloj se reinicia con
+   * cualquier clic o tecla, así que a nadie le corta el trabajo mientras está
+   * trabajando.
    */
   const MINUTOS_INACTIVO = 60
 
+  /**
+   * La sesión se guarda en `sessionStorage`, NO en `localStorage`: muere al
+   * cerrar la pestaña, así que la próxima vez que se abre el CIP hay que
+   * entrar de nuevo. Decisión de Dayanna (13-oct-2026): que se cierre siempre.
+   * Aguanta un F5 —si no, recargar sacaría a cualquiera a mitad del trabajo—
+   * pero no la vuelta del día siguiente.
+   */
   const CLAVE_SESION = 'cip-sesion'
   let sesion = null
   try {
-    sesion = JSON.parse(localStorage.getItem(CLAVE_SESION) || 'null')
+    sesion = JSON.parse(sessionStorage.getItem(CLAVE_SESION) || 'null')
+    // una sesión vieja guardada por la versión anterior no se hereda
+    localStorage.removeItem(CLAVE_SESION)
   } catch {
     sesion = null
   }
@@ -57,10 +66,10 @@
   const guardarSesion = (s) => {
     sesion = s
     try {
-      if (s) localStorage.setItem(CLAVE_SESION, JSON.stringify(s))
-      else localStorage.removeItem(CLAVE_SESION)
+      if (s) sessionStorage.setItem(CLAVE_SESION, JSON.stringify(s))
+      else sessionStorage.removeItem(CLAVE_SESION)
     } catch {
-      /* en una ventana privada no se puede: la sesión dura lo que la pestaña */
+      /* en una ventana privada no se puede: la sesión dura lo que la página */
     }
   }
 
