@@ -25,7 +25,19 @@
  */
 ;(function () {
   const CFG = window.CIP_SUPABASE || {}
-  if (!CFG.URL || !CFG.LLAVE) return
+
+  /** se quita la portada de arranque y queda la aplicación a la vista */
+  function destapar() {
+    const quitar = () => document.getElementById('cip-arranque')?.remove()
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', quitar)
+    else quitar()
+  }
+
+  // la copia suelta, sin llave, no tiene login que esperar
+  if (!CFG.URL || !CFG.LLAVE) {
+    destapar()
+    return
+  }
 
   /**
    * El CIP declara `const STATE = {…}` en el tope de su script. Un `const` de
@@ -238,6 +250,7 @@
       box-shadow:0 20px 60px rgba(0,0,0,.6)}
     .cip-entrar h2{margin:0 0 4px;font-size:1.1rem;color:var(--cyan,#00e5ff);letter-spacing:.5px}
     .cip-entrar p{margin:0 0 18px;color:var(--text-dim,#7d8aa0);font-size:.82rem}
+    .cip-entrar .cip-logo{display:block;width:170px;margin:0 auto 20px;opacity:.95}
     .cip-entrar input{width:100%;box-sizing:border-box;margin-bottom:10px;padding:.6rem .7rem;
       border:1px solid var(--line,#1c2536);border-radius:7px;background:var(--bg,#07090d);
       color:var(--text,#d8e3f3);font-size:.9rem;font-family:inherit}
@@ -295,6 +308,7 @@
     estilos()
     const tapa = el(`<div class="cip-tapa">
       <form class="cip-entrar">
+        <img class="cip-logo" src="img/logo.png" alt="Grupo Modumex">
         <h2>Cálculo de Materiales</h2>
         <p>Entrá con tu cuenta de Modumex para usar la aplicación.</p>
         <input id="cip-email" type="email" placeholder="correo" autocomplete="username" required>
@@ -605,18 +619,23 @@
       prepararPestana()
       ponerSalirArriba()
       vigilarInactividad()
+      // la portada se queda hasta saber el rol: si la cuenta está
+      // desactivada, que no alcance a verse la aplicación por detrás
       void cargarmeYo().then(() => {
         const no = porQueNoPuede()
         if (no) {
           salir()
           const m = document.getElementById('cip-login-msg')
           if (m) m.innerHTML = `<div class="cip-aviso">${no}</div>`
+          destapar()
           return
         }
+        destapar()
         window.dispatchEvent(new CustomEvent('cip-entro'))
       })
     } else {
       tapar()
+      destapar()
     }
   }
 

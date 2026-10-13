@@ -21,8 +21,27 @@
 <!-- SheetJS para leer .xlsm/.xlsx (checklist correcto, comparador de verificación) -->
 <script src="lib/xlsx-js-style.js"></script>
 <link rel="stylesheet" href="css/app.css">
+<style>
+  /* Portada de arranque. Va aquí dentro, no en la hoja de estilos, para que
+     el navegador la pinte con el primer pedazo de HTML que recibe. */
+  #cip-arranque{position:fixed;inset:0;z-index:9000;background:#07090d;
+    display:flex;align-items:center;justify-content:center}
+  #cip-arranque img{width:min(300px,58vw);opacity:.92}
+</style>
 </head>
 <body>
+
+<!-- Tapa la aplicación hasta que la nube decide si hay que pedir la
+     contraseña. Sin esto se alcanzaba a ver la pantalla de captura un
+     instante antes de que apareciera el login. -->
+<div id="cip-arranque"><img src="img/logo.png" alt="Grupo Modumex"></div>
+<script>
+  // red de seguridad: si la nube no carga, la portada no se queda pegada
+  setTimeout(function () {
+    var p = document.getElementById('cip-arranque')
+    if (p) p.remove()
+  }, 6000)
+</script>
 
 <!-- ═══════════════════════ TOPBAR ═══════════════════════ -->
 <div class="topbar">

@@ -32,6 +32,7 @@ jobs:
           cp -r js publicar/js
           cp -r lib publicar/lib
           cp -r css publicar/css
+          cp -r img publicar/img
           # sin esto GitHub Pages esconde las carpetas que empiezan con _
           touch publicar/.nojekyll
 
@@ -46,7 +47,7 @@ jobs:
           p = 'publicar/index.html'
           html = open(p, encoding='utf-8').read()
           # solo lo nuestro: lo que venga de un CDN se deja como está
-          html = re.sub(r'(?<=["\'])((?:js|css|lib)/[^"\']+?\.(?:js|css))(?=["\'])',
+          html = re.sub(r'(?<=["\'])((?:js|css|lib|img)/[^"\']+?\.(?:js|css|png|svg|jpg|webp))(?=["\'])',
                         lambda m: m.group(1) + '?v=' + v, html)
           open(p, 'w', encoding='utf-8').write(html)
           print('sellados con', v)
