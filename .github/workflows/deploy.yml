@@ -30,6 +30,10 @@ jobs:
           mkdir -p publicar
           cp index.html publicar/index.html
           cp -r js publicar/js
+          # GitHub Pages sirve los archivos con diez minutos de cache, asi que
+          # un config.js nuevo no llegaba al navegador hasta que vencia. Se le
+          # pega el commit a cada script: cambia la direccion y se baja solo.
+          sed -i "s|js/config.js|js/config.js?v=${GITHUB_SHA::8}|; s|js/nube.js|js/nube.js?v=${GITHUB_SHA::8}|" publicar/index.html
           # sin esto GitHub Pages esconde las carpetas que empiezan con _
           touch publicar/.nojekyll
 
