@@ -76,7 +76,9 @@ create trigger trg_sellar_guardado
 -- La cuenta que ya existe queda como admin; desde la aplicación ella crea
 -- las demás. Cambiá el correo si el primer admin es otro.
 insert into public.usuario (id, nombre, email, rol)
-select u.id, coalesce(u.raw_user_meta_data->>'nombre', ''), u.email, 'admin'
+select u.id,
+       coalesce(nullif(u.raw_user_meta_data->>'nombre', ''), initcap(split_part(u.email, '@', 1))),
+       u.email, 'admin'
   from auth.users u
  where u.email = 'dlizano@modumex.com'
 on conflict (id) do update set rol = 'admin';

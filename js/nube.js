@@ -157,12 +157,26 @@
 
   async function cargarmeYo() {
     try {
-      const r = await pedir('usuario?select=id,nombre,rol&id=eq.' + (await miId()))
+      const r = await pedir('usuario?select=id,nombre,rol,activo&id=eq.' + (await miId()))
       yo = Array.isArray(r) && r[0] ? r[0] : null
     } catch {
       yo = null
     }
     return yo
+  }
+
+  /**
+   * Por qué esta cuenta no puede usar el CIP, o cadena vacía si puede.
+   *
+   * Tener contraseña buena no alcanza: la cuenta tiene que estar dada de alta
+   * en la tabla `usuario` y activa. Esto es solo el aviso bonito — al que de
+   * verdad le cierra la puerta es la base, que no le deja ni leer ni guardar
+   * proyectos a una cuenta desactivada.
+   */
+  function porQueNoPuede() {
+    if (!yo) return 'Tu cuenta no está dada de alta en el CIP. Pedile al administrador que te agregue.'
+    if (yo.activo === false) return 'Tu cuenta está desactivada. Hablá con el administrador.'
+    return ''
   }
 
   /** el id del usuario sale del propio token, no de una consulta */
@@ -244,12 +258,15 @@
       background:var(--bg,#07090d);color:var(--text,#d8e3f3);font-size:.85rem;
       font-family:inherit;min-width:260px}
     .cip-proy-fila input:focus{outline:0;border-color:var(--cyan-dim,#007a8a)}
-    #tab-proyectos table{width:100%;border-collapse:collapse;font-size:.82rem}
-    #tab-proyectos th{text-align:left;color:var(--cyan-dim,#007a8a);padding:.5rem .6rem;
+    /* la tabla de cuentas se ve igual que la de proyectos */
+    #tab-proyectos table,#tab-usuarios table{width:100%;border-collapse:collapse;font-size:.82rem}
+    #tab-proyectos th,#tab-usuarios th{text-align:left;color:var(--cyan-dim,#007a8a);padding:.5rem .6rem;
       border-bottom:1px solid var(--line,#1c2536);text-transform:uppercase;font-size:.7rem;
       letter-spacing:.5px}
-    #tab-proyectos td{padding:.55rem .6rem;border-bottom:1px solid var(--line,#1c2536)}
-    #tab-proyectos tr:hover td{background:rgba(0,229,255,.05)}
+    #tab-proyectos td,#tab-usuarios td{padding:.55rem .6rem;border-bottom:1px solid var(--line,#1c2536)}
+    #tab-proyectos tr:hover td,#tab-usuarios tr:hover td{background:rgba(0,229,255,.05)}
+    /* en pantalla angosta la fila de botones se va de lado, no se corta */
+    #u-lista{overflow-x:auto}
     #tab-proyectos .id{color:var(--text-mute,#4d5772);font-variant-numeric:tabular-nums}
     #tab-proyectos tr.abierto td{background:rgba(0,255,149,.06)}
   `
@@ -299,8 +316,14 @@
       boton.disabled = false
       boton.textContent = 'Entrar'
       if (r.ok) {
-        tapa.remove()
         await cargarmeYo()
+        const no = porQueNoPuede()
+        if (no) {
+          guardarSesion(null)
+          tapa.querySelector('#cip-login-msg').innerHTML = `<div class="cip-aviso">${no}</div>`
+          return
+        }
+        tapa.remove()
         prepararPestana()
         ponerSalirArriba()
         vigilarInactividad()
@@ -376,10 +399,21 @@
     caja.querySelector('#cip-salir-btn').onclick = salir
   }
 
+  /**
+   * Cerrar sesión deja la pantalla como recién abierta: se van la barra de
+   * arriba y la pestaña de proyectos con todo lo que tenían dentro. Si no,
+   * el que entra después se encuentra el correo, la lista y el nombre del
+   * proyecto del anterior, que en planta es exactamente lo que no se quiere.
+   */
   function salir() {
     guardarSesion(null)
     abiertoId = null
+    yo = null
     document.getElementById('cip-salir-top')?.remove()
+    document.querySelector('[data-tab="proyectos"]')?.remove()
+    document.getElementById('tab-proyectos')?.remove()
+    window.dispatchEvent(new CustomEvent('cip-sali'))
+    if (!document.querySelector('.tab.active')) document.querySelector('.tab')?.click()
     tapar()
   }
 
@@ -571,7 +605,16 @@
       prepararPestana()
       ponerSalirArriba()
       vigilarInactividad()
-      void cargarmeYo().then(() => window.dispatchEvent(new CustomEvent('cip-entro')))
+      void cargarmeYo().then(() => {
+        const no = porQueNoPuede()
+        if (no) {
+          salir()
+          const m = document.getElementById('cip-login-msg')
+          if (m) m.innerHTML = `<div class="cip-aviso">${no}</div>`
+          return
+        }
+        window.dispatchEvent(new CustomEvent('cip-entro'))
+      })
     } else {
       tapar()
     }
