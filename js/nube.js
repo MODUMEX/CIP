@@ -147,7 +147,36 @@
     }
   }
 
-  const COLUMNAS = 'proyecto_id,nombre,exp,obra,cliente,linea,modelo,piezas,actualizado_el'
+  /**
+   * Mi ficha en la tabla `usuario`: el nombre con el que se firman los
+   * despieces y el rol. El rol NO se guarda en el navegador: se vuelve a
+   * preguntar en cada arranque, así que quitarle el admin a alguien tiene
+   * efecto apenas recarga, y de todas formas quien decide es la función.
+   */
+  let yo = null
+
+  async function cargarmeYo() {
+    try {
+      const r = await pedir('usuario?select=id,nombre,rol&id=eq.' + (await miId()))
+      yo = Array.isArray(r) && r[0] ? r[0] : null
+    } catch {
+      yo = null
+    }
+    return yo
+  }
+
+  /** el id del usuario sale del propio token, no de una consulta */
+  async function miId() {
+    if (!sesion?.access_token) return ''
+    try {
+      const carga = JSON.parse(atob(sesion.access_token.split('.')[1]))
+      return carga.sub || ''
+    } catch {
+      return ''
+    }
+  }
+
+  const COLUMNAS = 'proyecto_id,nombre,exp,obra,cliente,linea,modelo,piezas,actualizado_el,guardado_por'
   const listar = () => pedir('proyecto?select=' + COLUMNAS + '&order=actualizado_el.desc&limit=300')
   const leer = (id) => pedir('proyecto?select=app_json&proyecto_id=eq.' + id)
   const borrar = (id) => pedir('proyecto?proyecto_id=eq.' + id, { method: 'DELETE' })
@@ -271,9 +300,11 @@
       boton.textContent = 'Entrar'
       if (r.ok) {
         tapa.remove()
+        await cargarmeYo()
         prepararPestana()
         ponerSalirArriba()
         vigilarInactividad()
+        window.dispatchEvent(new CustomEvent('cip-entro'))
       } else {
         tapa.querySelector('#cip-login-msg').innerHTML = `<div class="cip-aviso">${r.mensaje}</div>`
       }
@@ -450,11 +481,21 @@
       : d.toLocaleString('es-CR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
   }
 
+  /** id de usuario → nombre, para firmar los proyectos */
+  async function nombresDeUsuarios() {
+    try {
+      const r = await pedir('usuario?select=id,nombre')
+      return new Map((r || []).map((u) => [u.id, u.nombre]))
+    } catch {
+      return new Map()
+    }
+  }
+
   async function pintar() {
     const caja = document.getElementById('cip-lista')
     if (!caja) return
     try {
-      const filas = await listar()
+      const [filas, quienes] = await Promise.all([listar(), nombresDeUsuarios()])
       if (!filas.length) {
         caja.innerHTML =
           '<p style="color:var(--text-dim,#7d8aa0);font-size:.85rem">Todavía no hay proyectos guardados.</p>'
@@ -462,7 +503,7 @@
       }
       caja.innerHTML =
         '<table><thead><tr><th>ID</th><th>Nombre</th><th>Expediente</th><th>Obra</th>' +
-        '<th>Línea</th><th>Piezas</th><th>Actualizado</th><th></th></tr></thead><tbody>' +
+        '<th>Línea</th><th>Piezas</th><th>Guardado por</th><th>Actualizado</th><th></th></tr></thead><tbody>' +
         filas
           .map(
             (f) => `<tr class="${f.proyecto_id === abiertoId ? 'abierto' : ''}">
@@ -472,6 +513,7 @@
               <td>${limpio(f.obra)}</td>
               <td>${limpio(f.linea)} ${limpio(f.modelo)}</td>
               <td>${f.piezas ?? ''}</td>
+              <td>${limpio(quienes.get(f.guardado_por) || '')}</td>
               <td>${fecha(f.actualizado_el)}</td>
               <td style="text-align:right;white-space:nowrap">
                 <button class="cip-btn" data-abrir="${f.proyecto_id}" data-nombre="${limpio(f.nombre)}">Abrir</button>
@@ -529,9 +571,38 @@
       prepararPestana()
       ponerSalirArriba()
       vigilarInactividad()
+      void cargarmeYo().then(() => window.dispatchEvent(new CustomEvent('cip-entro')))
     } else {
       tapar()
     }
+  }
+
+  /**
+   * Lo mínimo que la pantalla de Usuarios necesita de este módulo: quién soy,
+   * cómo llamar a la función de Supabase y los ayudantes de dibujo. Se publica
+   * así para no repetir la sesión ni los estilos en dos archivos.
+   */
+  window.CIP_NUBE = {
+    yo: () => yo,
+    el,
+    limpio,
+    estilos,
+    fecha,
+    async llamarFuncion(cuerpo) {
+      const r = await fetch(CFG.URL + '/functions/v1/usuarios', {
+        method: 'POST',
+        headers: cabeceras(),
+        body: JSON.stringify(cuerpo),
+      })
+      const d = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        if (r.status === 404) {
+          return { ok: false, mensaje: 'Falta desplegar la Edge Function "usuarios" en Supabase.' }
+        }
+        return { ok: false, mensaje: d.error || 'Supabase respondió ' + r.status }
+      }
+      return { ok: true, ...d }
+    },
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar)
