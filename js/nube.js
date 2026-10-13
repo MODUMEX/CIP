@@ -121,7 +121,10 @@
   }
 
   async function pedir(ruta, opciones = {}, reintento = true) {
-    const r = await fetch(CFG.URL + '/rest/v1/' + ruta, { ...opciones, headers: cabeceras() })
+    const r = await fetch(CFG.URL + '/rest/v1/' + ruta, {
+      ...opciones,
+      headers: { ...cabeceras(), ...(opciones.headers || {}) },
+    })
     if (r.status === 401) {
       if (reintento && (await renovar())) return pedir(ruta, opciones, false)
       guardarSesion(null)
@@ -132,7 +135,16 @@
       const t = await r.text().catch(() => '')
       throw new Error(t.slice(0, 200) || 'Supabase respondió ' + r.status)
     }
-    return r.status === 204 ? null : r.json()
+    // Un insert sin `Prefer: return=representation` contesta 201 con el cuerpo
+    // VACÍO, y un delete contesta 204. Leer eso como JSON reventaba con
+    // "Unexpected end of JSON input" aunque la fila se hubiera guardado bien.
+    const texto = await r.text()
+    if (!texto) return null
+    try {
+      return JSON.parse(texto)
+    } catch {
+      return null
+    }
   }
 
   const COLUMNAS = 'proyecto_id,nombre,exp,obra,cliente,linea,modelo,piezas,actualizado_el'
@@ -162,7 +174,12 @@
       await pedir('proyecto?proyecto_id=eq.' + id, { method: 'PATCH', body: JSON.stringify(fila) })
       return id
     }
-    const creado = await pedir('proyecto', { method: 'POST', body: JSON.stringify([fila]) })
+    // sin esto PostgREST no devuelve nada y no habría ID que mostrar
+    const creado = await pedir('proyecto', {
+      method: 'POST',
+      headers: { Prefer: 'return=representation' },
+      body: JSON.stringify([fila]),
+    })
     return Array.isArray(creado) && creado[0] ? creado[0].proyecto_id : null
   }
 
@@ -262,6 +279,49 @@
       }
     })
     setTimeout(() => tapa.querySelector('#cip-email')?.focus(), 50)
+  }
+
+  /**
+   * Volver a poner en los campos lo que dice STATE.
+   *
+   * Las ataduras del CIP van en UN SOLO sentido: el campo escribe en STATE,
+   * pero nada escribe en el campo. Al arrancar no hace falta porque STATE está
+   * vacío, pero al ABRIR un proyecto los datos volvían bien y la pantalla
+   * seguía en blanco. `renderAll()` repinta las tablas y los totales, no los
+   * formularios.
+   *
+   * Los selects se tocan con un `change` de verdad —no solo poniéndoles el
+   * valor— porque de ellos cuelgan los modelos y los colores, que el CIP
+   * rellena en respuesta a ese evento.
+   */
+  function volcarAPantalla() {
+    const S = estado() || {}
+    const texto = {
+      'f-exp': S.exp, 'f-obra': S.obra, 'f-cliente': S.cliente, 'f-notas': S.notas,
+      'f-oc-total': S.ocTotal, 'f-exp-padre': S.expPadre, 'f-afuera': S.puertasAfuera,
+      'f-color': S.color,
+    }
+    for (const [id, valor] of Object.entries(texto)) {
+      const c = document.getElementById(id)
+      if (c) c.value = valor ?? ''
+    }
+    const selects = {
+      'f-linea': S.linea, 'f-region': S.region, 'f-terminacion': S.sistema,
+      'f-kap': S.kap, 'f-refuerzo': S.refuerzo, 'f-modelo': S.modeloCod,
+      'f-oc-adicional': String(!!S.ocAdicional),
+    }
+    for (const [id, valor] of Object.entries(selects)) {
+      const c = document.getElementById(id)
+      if (!c || valor === undefined || valor === null) continue
+      c.value = valor
+      c.dispatchEvent(new Event('change', { bubbles: true }))
+    }
+    // el modelo depende de la línea: se vuelve a poner después de que el
+    // cambio de línea repobló su lista
+    const m = document.getElementById('f-modelo')
+    if (m && S.modeloCod) m.value = S.modeloCod
+    const col = document.getElementById('f-color')
+    if (col && S.color) col.value = S.color
   }
 
   // ───────────────────────────────────────────────── salir
@@ -435,6 +495,7 @@
             abiertoId = Number(b.dataset.abrir)
             const campo = document.getElementById('cip-nombre')
             if (campo) campo.value = b.dataset.nombre || ''
+            volcarAPantalla()
             if (typeof window.renderAll === 'function') window.renderAll()
             document.querySelector('.tab[data-tab="capturar"]')?.click()
           } catch (e) {
