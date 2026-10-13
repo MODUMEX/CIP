@@ -11,5 +11,5 @@
  */
 window.CIP_SUPABASE = {
   URL: 'https://xvqpwddrxrglrsaetzle.supabase.co',
-  LLAVE: '',
+  LLAVE: 'sb_publishable_xKD74G4SKsV2b9n9wj68Rg_wctdFtRJ',
 }
