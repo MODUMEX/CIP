@@ -119,6 +119,7 @@
           if (!nuevo.trim()) return msg('El nombre no puede quedar vacío.')
           const r2 = await N.llamarFuncion({ accion: 'actualizar', id: b.dataset.nombre, nombre: nuevo })
           if (!r2.ok) return msg(N.limpio(r2.mensaje))
+          if (b.dataset.nombre === yo.id) await N.refrescarme()
           pintar()
         }
       })

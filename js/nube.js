@@ -191,6 +191,23 @@
     return ''
   }
 
+  /**
+   * Cómo se me llama en pantalla: el nombre de la ficha, y el correo
+   * mientras esa ficha no haya llegado (o si quedó sin nombre).
+   */
+  function quienSoy() {
+    return yo?.nombre?.trim() || sesion?.email || ''
+  }
+
+  /** se vuelve a escribir donde aparece, que es arriba y en la pestaña 04 */
+  function pintarQuien() {
+    const t = quienSoy()
+    const arriba = document.getElementById('cip-quien-top')
+    if (arriba) arriba.textContent = t
+    const panel = document.getElementById('cip-quien')
+    if (panel) panel.textContent = t
+  }
+
   /** el id del usuario sale del propio token, no de una consulta */
   async function miId() {
     if (!sesion?.access_token) return ''
@@ -414,7 +431,7 @@
       '</span>',
     )
     acciones.appendChild(caja)
-    caja.querySelector('#cip-quien-top').textContent = sesion?.email || ''
+    caja.querySelector('#cip-quien-top').textContent = quienSoy()
     caja.querySelector('#cip-salir-btn').onclick = salir
   }
 
@@ -501,7 +518,7 @@
       })
     })
 
-    panel.querySelector('#cip-quien').textContent = sesion?.email || ''
+    panel.querySelector('#cip-quien').textContent = quienSoy()
     panel.querySelector('#cip-guardar').onclick = () => void guardarDesdePantalla(abiertoId)
     panel.querySelector('#cip-guardar-nuevo').onclick = () => void guardarDesdePantalla(null)
   }
@@ -635,6 +652,7 @@
           destapar()
           return
         }
+        pintarQuien()
         destapar()
         window.dispatchEvent(new CustomEvent('cip-entro'))
       })
@@ -651,6 +669,12 @@
    */
   window.CIP_NUBE = {
     yo: () => yo,
+    // si me cambio el nombre a mí misma desde la pestaña 05, que se vea
+    // arriba sin tener que recargar
+    async refrescarme() {
+      await cargarmeYo()
+      pintarQuien()
+    },
     el,
     limpio,
     estilos,
