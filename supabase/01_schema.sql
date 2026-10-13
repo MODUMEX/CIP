@@ -15,8 +15,10 @@
 
 create table if not exists public.proyecto (
   proyecto_id    bigint generated always as identity primary key,
-  -- lo que se ve en la lista
-  exp            text not null,
+  -- lo que se ve en la lista. El NOMBRE lo pone quien guarda; el ID es el
+  -- numero de la izquierda y es con lo que se piden los proyectos en planta.
+  nombre         text not null default '',
+  exp            text not null default '',
   obra           text not null default '',
   cliente        text not null default '',
   linea          text not null default '',
@@ -34,6 +36,7 @@ create table if not exists public.proyecto (
 
 create index if not exists ix_proyecto_actualizado on public.proyecto(actualizado_el desc);
 create index if not exists ix_proyecto_exp         on public.proyecto(exp);
+create index if not exists ix_proyecto_nombre      on public.proyecto(nombre);
 
 -- ---------------------------------------------------------------------
 -- Quién ve qué
