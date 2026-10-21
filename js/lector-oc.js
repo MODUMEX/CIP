@@ -182,6 +182,106 @@
     return esSap ? leerSap(renglones, items) : leerOdoo(renglones, items)
   }
 
+  // ───────────────────────────────── la OC en Excel
+
+  /** la plantilla de orden de compra que llenan los distribuidores */
+  const ES_EXCEL = /\.(xlsx|xlsm|xls)$/i
+
+  /** de metros a centímetros, que es como trabaja el checklist */
+  const aCm = (m) => Math.round(m * 100)
+
+  /**
+   * La familia sale del código que va DENTRO de la descripción —"Puerta
+   * CODIGO PT70", "Pilastra COD: PI24R"— y, si no hay código, de la palabra.
+   * `PI` es pilastra en esta plantilla; en el resto de la app es `PL`.
+   */
+  function familiaDeTexto(texto) {
+    const t = String(texto || '').toUpperCase()
+    const cod = t.match(/\b(PT|PN|PI|PL|MG|PM)\s*-?\s*\d/)
+    if (cod) {
+      const f = cod[1]
+      return f === 'PI' ? 'PL' : f === 'PM' ? 'MG' : f
+    }
+    if (/MINGITORIO|URINAL/.test(t)) return 'MG'
+    if (/PILASTRA/.test(t)) return 'PL'
+    if (/PANEL/.test(t)) return 'PN'
+    if (/PUERTA/.test(t)) return 'PT'
+    return null
+  }
+
+  /** el alto y el ancho de una pieza vienen en metros y no pasan de esto */
+  const MAX_METROS = 3.5
+
+  /**
+   * Lee la plantilla de Excel.
+   *
+   * No se cuelga de las letras de columna, que cambian entre versiones de la
+   * plantilla: busca el encabezado "Descripción", y de ahí la cantidad sale de
+   * lo que está a la IZQUIERDA y las dos medidas de los dos primeros números a
+   * la DERECHA. Los renglones que no son piezas —un herraje suelto, el grabado
+   * láser— tienen ahí el precio en vez de una medida, y por eso se descartan
+   * con el tope de 3,5 m: nadie fabrica una pieza de 17 metros.
+   */
+  function leerExcel(filas) {
+    const iCab = filas.findIndex((f) =>
+      (f || []).some((c) => typeof c === 'string' && /descripci/i.test(c)),
+    )
+    if (iCab < 0) return { formato: 'Excel', cabecera: {}, piezas: [], total: null, saltados: [] }
+    const cDesc = filas[iCab].findIndex((c) => typeof c === 'string' && /descripci/i.test(c))
+
+    const piezas = []
+    const saltados = []
+    for (const fila of filas.slice(iCab + 1)) {
+      if (!fila) continue
+      const desc = fila[cDesc]
+      if (typeof desc !== 'string' || !desc.trim()) continue
+      const familia = familiaDeTexto(desc)
+      const izquierda = fila.slice(0, cDesc).filter((c) => typeof c === 'number' && c > 0)
+      const derecha = fila.slice(cDesc + 1).filter((c) => typeof c === 'number')
+      const cant = Math.round(izquierda[0] ?? 0)
+      const [ancho, alto] = derecha
+      if (!cant) continue
+      // Un renglón con cantidad y descripción que no termina en pieza se dice,
+      // no se calla: puede ser un herraje suelto —que está bien dejar fuera— o
+      // una pieza que no supe leer, y eso hay que verlo.
+      if (!familia || !(ancho > 0 && ancho <= MAX_METROS && alto > 0 && alto <= MAX_METROS)) {
+        saltados.push(desc.trim())
+        continue
+      }
+      piezas.push({ familia, ancho: aCm(ancho), alto: aCm(alto), cant })
+    }
+
+    // La cabecera se lee por el VALOR, no por la etiqueta: las etiquetas de
+    // esta plantilla son números que apuntan a otra hoja.
+    const textos = filas.flat().filter((c) => typeof c === 'string').map((c) => c.trim())
+    const buscar = (re) => textos.find((t) => re.test(t)) || ''
+    const linea = buscar(/^(LEEDER|SUPERIOR|TOUCHLESS)(_|\s|$)/i)
+    return {
+      formato: 'Excel',
+      cabecera: {
+        exp: '',
+        obra: '',
+        cliente: buscar(/^DICOMA|^SANIMAX|^MODUMEX/i),
+        color: buscar(/^[A-ZÁÉÍÓÚÑ ]+\s\d{4}$/),
+        linea: linea.split('_')[0],
+        acabado: buscar(/LAMINADO COMPACTO|ACERO INOX|ESMALTAD/i),
+        soporte: buscar(/^(ZOCLO|PATAS?|PATA DE)/i),
+        modelo: buscar(/^(REFORZADO|EST[ÁA]NDAR|ESTANDAR|REGADERAS?|SCUDO|IMPERIAL|KIDS|COLGANTE)$/i),
+      },
+      piezas,
+      total: null,
+      saltados,
+    }
+  }
+
+  async function filasDelExcel(archivo) {
+    if (!window.XLSX) throw new Error('la librería de Excel no cargó')
+    const datos = new Uint8Array(await archivo.arrayBuffer())
+    const libro = XLSX.read(datos, { type: 'array' })
+    const nombre = libro.SheetNames.find((n) => /orden/i.test(n)) || libro.SheetNames[0]
+    return XLSX.utils.sheet_to_json(libro.Sheets[nombre], { header: 1, raw: true, defval: null })
+  }
+
   // ───────────────────────────────── aplicar lo leído
 
   /** el mingitorio sí se resuelve solo: lo define el alto */
@@ -352,10 +452,15 @@
     if (!archivo) return
     avisar('Leyendo ' + archivo.name + '…')
     try {
-      const renglones = await renglonesDelPdf(archivo)
-      const res = leer(renglones)
+      const esExcel = ES_EXCEL.test(archivo.name)
+      const res = esExcel ? leerExcel(await filasDelExcel(archivo)) : leer(await renglonesDelPdf(archivo))
       if (!res.piezas.length) {
-        avisar('No encontré renglones de piezas en ese PDF. ¿Es la OC o es el plano?', 'mal')
+        avisar(
+          esExcel
+            ? 'No encontré la tabla de piezas en ese Excel. ¿Es la orden de compra?'
+            : 'No encontré renglones de piezas en ese PDF. ¿Es la OC o es el plano?',
+          'mal',
+        )
         return
       }
       // Importar dos veces sumaba las piezas en silencio. Si ya hay una OC
@@ -383,9 +488,14 @@
         const redondeo = (res.redondeadas || []).length
           ? ' Ojo: ' + res.redondeadas.join(', ') + ' venía en milímetros y se redondeó al centímetro.'
           : ''
+        // los herrajes sueltos y el grabado no son piezas del checklist, pero
+        // conviene decir que estaban, no vaya a ser que alguien los dé por leídos
+        const fuera = (res.saltados || []).length
+          ? ' No entraron (no son piezas): ' + res.saltados.join(', ') + '.'
+          : ''
         avisar(
           `OC ${res.formato} leída: ${suma} piezas` +
-          (res.total != null ? ' (cuadra con el total declarado)' : '') + '.' + redondeo,
+          (res.total != null ? ' (cuadra con el total declarado)' : '') + '.' + redondeo + fuera,
           redondeo ? '' : 'ok',
         )
       }
@@ -405,20 +515,21 @@
     panel.className = 'panel'
     panel.id = 'oc-pdf-panel'
     panel.innerHTML = [
-      '<div class="panel-title cyan"><span class="ico">📄</span>Importar OC (PDF)</div>',
+      '<div class="panel-title cyan"><span class="ico">📄</span>Importar OC (PDF o Excel)</div>',
       '<div class="banner info" style="margin-top:8px;font-size:12px;">',
-      '  Para los proyectos que <b>no</b> pasaron por el Constructor. Lee la OC en PDF',
-      '  (SAP de México u Odoo de LATAM) y llena cabecera, medidas y cantidades.',
+      '  Para los proyectos que <b>no</b> pasaron por el Constructor. Lee la OC en <b>PDF</b>',
+      '  (SAP de México u Odoo de LATAM) o en <b>Excel</b> (la plantilla de orden de compra',
+      '  que llenan los distribuidores) y saca cabecera, medidas y cantidades.',
       '  <b>El tipo de cada puerta, panel y pilastra no viene en la OC</b> —eso está en el',
       '  plano—, así que queda abajo en una lista para que lo asignes vos.',
       '  Los mingitorios sí se resuelven solos: los define el alto.',
       '</div>',
       '<div class="grid grid-2" style="margin-top:12px;">',
       '  <label class="drop empty" id="drop-oc-pdf" style="cursor:pointer;">',
-      '    <input type="file" id="file-oc-pdf" accept="application/pdf,.pdf" style="display:none;">',
+      '    <input type="file" id="file-oc-pdf" accept=".pdf,.xlsx,.xlsm,.xls" style="display:none;">',
       '    <div class="drop-ico">📄</div>',
-      '    <div class="drop-title">Orden de Compra (PDF)</div>',
-      '    <div class="drop-status" style="font-size:12px;color:var(--cyan);">Arrastrá o hacé clic para subir la OC</div>',
+      '    <div class="drop-title">Orden de Compra</div>',
+      '    <div class="drop-status" style="font-size:12px;color:var(--cyan);">Arrastrá o hacé clic: PDF, .xlsx o .xlsm</div>',
       '  </label>',
       '  <div style="display:flex;flex-direction:column;gap:8px;justify-content:center;">',
       '    <button class="btn btn-sm" id="btn-oc-pdf-clear">✕ Quitar la lista por asignar</button>',
