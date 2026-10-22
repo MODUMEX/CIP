@@ -288,6 +288,10 @@
       background:rgba(255,80,80,.1);color:#ff9b9b;border:1px solid #5a2020}
     .cip-aviso.ok{background:rgba(0,255,149,.08);color:var(--green-soft,#5fffb8);
       border-color:var(--green-dim,#007a48)}
+    /* la fila de guardar dentro de Datos del Proyecto (pestaña 01) */
+    .cip-guardar-fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+    .cip-guardar-fila #cip-abierto{color:var(--text-dim,#7d8aa0);font-size:.78rem}
+    .cip-guardar-fila .cip-aviso{margin-top:0;padding:.35rem .6rem;font-size:.76rem}
     .cip-proy-fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
     .cip-proy-fila input{padding:.55rem .7rem;border:1px solid var(--line,#1c2536);border-radius:7px;
       background:var(--bg,#07090d);color:var(--text,#d8e3f3);font-size:.85rem;
@@ -446,6 +450,7 @@
     abiertoId = null
     yo = null
     document.getElementById('cip-salir-top')?.remove()
+    document.getElementById('cip-guardar-fila')?.remove()
     document.querySelector('[data-tab="proyectos"]')?.remove()
     document.getElementById('tab-proyectos')?.remove()
     window.dispatchEvent(new CustomEvent('cip-sali'))
@@ -523,9 +528,43 @@
     panel.querySelector('#cip-guardar-nuevo').onclick = () => void guardarDesdePantalla(null)
   }
 
+  /**
+   * Guardar sin tener que irse a la pestaña 04. En planta se captura todo en
+   * la 01 y el proyecto se perdía por no cambiar de pestaña antes de cerrar.
+   */
+  function ponerGuardarEnCapturar() {
+    if (document.getElementById('cip-guardar-fila')) return
+    const banner = document.getElementById('checklist-banner')
+    if (!banner) return
+    const fila = el(`<div class="cip-guardar-fila" id="cip-guardar-fila">
+      <button class="cip-btn" id="cip-guardar-aqui">Guardar proyecto</button>
+      <button class="cip-btn gris" id="cip-guardar-aqui-nuevo">Guardar como nuevo</button>
+      <span id="cip-abierto"></span>
+      <span style="flex:1"></span>
+      <span id="cip-guardar-aqui-msg"></span>
+    </div>`)
+    banner.insertAdjacentElement('afterend', fila)
+    fila.querySelector('#cip-guardar-aqui').onclick = () => void guardarDesdePantalla(abiertoId)
+    fila.querySelector('#cip-guardar-aqui-nuevo').onclick = () => void guardarDesdePantalla(null)
+    refrescarAbierto()
+  }
+
+  /** qué proyecto se está editando, para no guardar encima del que no era */
+  function refrescarAbierto() {
+    const c = document.getElementById('cip-abierto')
+    if (!c) return
+    const nombre = (document.getElementById('cip-nombre')?.value || '').trim()
+    c.innerHTML = abiertoId
+      ? `editando <b>${limpio(nombre || '—')}</b> · ID ${abiertoId}`
+      : 'todavía sin guardar'
+  }
+
   const msg = (t, ok) => {
+    const html = `<div class="cip-aviso ${ok ? 'ok' : ''}">${t}</div>`
     const c = document.getElementById('cip-msg')
-    if (c) c.innerHTML = `<div class="cip-aviso ${ok ? 'ok' : ''}">${t}</div>`
+    if (c) c.innerHTML = html
+    const d = document.getElementById('cip-guardar-aqui-msg')
+    if (d) d.innerHTML = html
   }
 
   async function guardarDesdePantalla(id) {
@@ -538,6 +577,7 @@
       abiertoId = await guardar(nombre, id)
       if (campo) campo.value = nombre
       msg(`Guardado como <b>${limpio(nombre)}</b> · ID ${abiertoId}.`, true)
+      refrescarAbierto()
       pintar()
     } catch (e) {
       msg('No se pudo guardar: ' + limpio(e.message))
@@ -607,6 +647,7 @@
             abiertoId = Number(b.dataset.abrir)
             const campo = document.getElementById('cip-nombre')
             if (campo) campo.value = b.dataset.nombre || ''
+            refrescarAbierto()
             volcarAPantalla()
             if (typeof window.renderAll === 'function') window.renderAll()
             document.querySelector('.tab[data-tab="capturar"]')?.click()
@@ -620,7 +661,7 @@
           if (!confirm('¿Borrar ese proyecto? No se puede deshacer.')) return
           try {
             await borrar(b.dataset.borrar)
-            if (abiertoId === Number(b.dataset.borrar)) abiertoId = null
+            if (abiertoId === Number(b.dataset.borrar)) { abiertoId = null; refrescarAbierto() }
             pintar()
           } catch (e) {
             msg('No se pudo borrar: ' + limpio(e.message))
@@ -639,6 +680,7 @@
     estilos()
     if (sesion) {
       prepararPestana()
+      ponerGuardarEnCapturar()
       ponerSalirArriba()
       vigilarInactividad()
       // la portada se queda hasta saber el rol: si la cuenta está
