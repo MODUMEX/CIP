@@ -364,6 +364,37 @@
     pintarPendientes()
   }
 
+  /**
+   * Quita del proyecto piezas ya asignadas de esa medida. Saca primero las del
+   * código elegido en la fila —que es el que se equivocaron— y, dentro de ese
+   * grupo, las últimas que entraron.
+   */
+  function devolver(indice, codigo, cuantas) {
+    const p = (STATE.ocPendientes || [])[indice]
+    if (!p || cuantas < 1) return
+    const suyas = STATE.pieces
+      .map((q, i) => ({ q, i }))
+      .filter(({ q }) => (q.codigo || '').toUpperCase().startsWith(p.familia) &&
+                         int(q.ancho) === p.ancho && int(q.alto) === p.alto)
+      .sort((a, b) => {
+        const mismo = (x) => ((x.q.codigo || '').toUpperCase() === codigo ? 0 : 1)
+        if (mismo(a) !== mismo(b)) return mismo(a) - mismo(b)
+        const deOC = (x) => (x.q.detalle === 'OC' ? 0 : 1)
+        if (deOC(a) !== deOC(b)) return deOC(a) - deOC(b)
+        return b.i - a.i
+      })
+    let resta = cuantas
+    for (const { q } of suyas) {
+      if (resta <= 0) break
+      const baja = Math.min(resta, int(q.cant))
+      q.cant = int(q.cant) - baja
+      resta -= baja
+    }
+    STATE.pieces = STATE.pieces.filter((q) => int(q.cant) > 0)
+    renderAll()
+    pintarPendientes()
+  }
+
   function pintarPendientes() {
     const caja = document.getElementById('oc-pendientes')
     if (!caja) return
@@ -382,11 +413,13 @@
           <td>${ya}</td>
           <td class="${listo ? 'oc-ok' : 'oc-falta'}">${listo ? (faltan < 0 ? 'sobran ' + -faltan : '✓') : faltan}</td>
           <td>
-            <select data-cod="${i}" ${listo && faltan === 0 ? 'disabled' : ''}>
+            <select data-cod="${i}">
               ${codigos.map((c) => `<option value="${c}">${c}</option>`).join('')}
             </select>
-            <input type="number" min="1" data-cant="${i}" value="${Math.max(faltan, 1)}" ${listo && faltan === 0 ? 'disabled' : ''}>
-            <button class="cip-btn" data-asignar="${i}" ${listo && faltan === 0 ? 'disabled' : ''}>Asignar</button>
+            <input type="number" min="1" data-cant="${i}" value="${faltan > 0 ? faltan : 1}">
+            <button class="cip-btn" data-asignar="${i}" ${faltan <= 0 ? 'disabled' : ''}>Asignar</button>
+            <button class="cip-btn oc-dev" data-devolver="${i}" ${ya <= 0 ? 'disabled' : ''}
+              title="Saca del proyecto esa cantidad de piezas de esta medida">Devolver</button>
           </td>
         </tr>`
     })
@@ -414,6 +447,15 @@
         asignar(i, cod, cant)
       }
     })
+
+    caja.querySelectorAll('[data-devolver]').forEach((b) => {
+      b.onclick = () => {
+        const i = +b.dataset.devolver
+        const cod = caja.querySelector(`[data-cod="${i}"]`).value
+        const cant = parseInt(caja.querySelector(`[data-cant="${i}"]`).value) || 0
+        devolver(i, cod, cant)
+      }
+    })
   }
 
   // ───────────────────────────────── pantalla
@@ -436,6 +478,10 @@
       '.oc-tabla select,.oc-tabla input{padding:5px 7px;border:1px solid #3a4252;border-radius:6px;',
       '  background:var(--bg,#07090d);color:var(--text,#d8e3f3);font-size:12px;font-family:inherit}',
       '.oc-tabla input{width:62px}',
+      '.oc-tabla .oc-dev{border-color:#5a4030;color:#ffb86b;margin-left:4px}',
+      '.oc-tabla .oc-dev:hover{background:rgba(255,184,107,.1)}',
+      '.oc-tabla button[disabled]{opacity:.35;cursor:default}',
+      '.oc-tabla button[disabled]:hover{background:none}',
       '.oc-aviso{margin-top:10px;font-size:12px}',
       '.oc-aviso.mal{color:#ff9b9b}',
       '.oc-aviso.ok{color:var(--green-soft,#5fffb8)}',
