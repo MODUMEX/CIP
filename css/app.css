@@ -863,3 +863,66 @@
     color: var(--amber);
     font-style: italic;
   }
+
+  /* Cortes de refuerzo: alta de a uno y lista con botón de quitar */
+  .cr-alta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .cr-alta .input {
+    width: auto;
+    flex: 1;
+    min-width: 0;
+  }
+  .cr-alta #f-cortes-ref-cant {
+    flex: 0 0 64px;
+  }
+  .cr-alta .cr-x {
+    color: var(--text-mute);
+    font-size: 12px;
+  }
+  .cr-alta .btn {
+    white-space: nowrap;
+  }
+  #f-cortes-ref-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .cr-fila {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 8px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+    font-size: 12px;
+  }
+  .cr-fila .cr-med {
+    font-weight: 600;
+    color: var(--text);
+  }
+  .cr-fila .cr-ml,
+  .cr-fila .cr-area {
+    color: var(--text-mute);
+    font-size: 11px;
+  }
+  .cr-fila .cr-del {
+    margin-left: auto;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 2px 7px;
+    font-family: inherit;
+  }
+  .cr-fila .cr-del:hover {
+    border-color: var(--red);
+    color: var(--red);
+  }

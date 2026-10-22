@@ -147,8 +147,14 @@
       </div>
       <div class="grid grid-3" style="margin-top: 16px;">
         <div class="field" id="f-cortes-ref-wrap" style="display:none;">
-          <label class="field-label">Cortes de refuerzo (manual) — cm×cant</label>
-          <input class="input" id="f-cortes-ref" placeholder="700x2, 350, 400x3">
+          <label class="field-label">Cortes de refuerzo (manual) — cm × cantidad</label>
+          <div class="cr-alta">
+            <input class="input" id="f-cortes-ref-cm" inputmode="numeric" placeholder="cm · 165">
+            <span class="cr-x">×</span>
+            <input class="input" id="f-cortes-ref-cant" type="number" min="1" step="1" value="1">
+            <button class="btn btn-ghost" id="f-cortes-ref-add" type="button">+ Agregar</button>
+          </div>
+          <div id="f-cortes-ref-lista"></div>
           <div class="small muted" id="f-cortes-ref-info"></div>
         </div>
         <div class="field" id="f-afuera-wrap" style="display:none;">

@@ -961,6 +961,7 @@ function calculateMaterials() {
 // ════════════════════════════════════════════════════════════════════
 function renderAll() {
   renderTopbar();
+  pintarCortesRef();
   renderVerificationList();
   renderKPI();
   renderMaterialsList();
@@ -3927,8 +3928,7 @@ function actualizarCamposLinea() {
   if (crw) crw.style.display = (STATE.modelo === 'REFORZADO' && !esSuperiorCIP()) ? '' : 'none';
   const afw = document.getElementById('f-afuera-wrap');
   if (afw) afw.style.display = esTouchlessCIP() ? '' : 'none';
-  const cr = document.getElementById('f-cortes-ref');
-  if (cr && document.activeElement !== cr) cr.value = (STATE.refuerzoCortes || []).map(r => (r.cant > 1 ? r.cm + 'x' + r.cant : '' + r.cm)).join(', ');
+  pintarCortesRef();
   const af = document.getElementById('f-afuera');
   if (af && document.activeElement !== af) af.value = +STATE.puertasAfuera || 0;
 }
@@ -3969,15 +3969,63 @@ function parseCortesManual(txt) {
   });
   return out;
 }
-$('f-cortes-ref').addEventListener('input', e => {
-  STATE.refuerzoCortes = parseCortesManual(e.target.value);
+// Los cortes de refuerzo se agregan de a uno y quedan listados abajo, cada uno
+// con su botón de quitar. Antes era un solo campo de texto donde había que
+// escribir toda la lista separada por comas: con un corte salía bien y con
+// varios, si no se ponían las comas exactas, no entraba ninguno.
+function agregarCorteRef() {
+  const cmEl = $('f-cortes-ref-cm'), cantEl = $('f-cortes-ref-cant');
+  if (!cmEl) return;
+  const texto = cmEl.value;
+  const cant = Math.max(1, parseInt(cantEl && cantEl.value) || 1);
+  // el campo de cm también acepta una lista pegada: "700x2, 350, 400x3"
+  const sueltos = parseCortesManual(texto);
+  const nuevos = /[x×*,;]/i.test(texto) ? sueltos : sueltos.map(s => ({ cm: s.cm, cant }));
+  if (!nuevos.length) return;
+  if (!Array.isArray(STATE.refuerzoCortes)) STATE.refuerzoCortes = [];
+  nuevos.forEach(n => {
+    const igual = STATE.refuerzoCortes.find(r => r.cm === n.cm && !r.area);
+    if (igual) igual.cant = int(igual.cant) + n.cant;
+    else STATE.refuerzoCortes.push({ cm: n.cm, cant: n.cant });
+  });
+  cmEl.value = '';
+  renderAll();
+  cmEl.focus();
+}
+
+function quitarCorteRef(i) {
+  if (!Array.isArray(STATE.refuerzoCortes)) return;
+  STATE.refuerzoCortes.splice(i, 1);
+  renderAll();
+}
+
+function pintarCortesRef() {
+  const lista = STATE.refuerzoCortes || [];
+  const cont = document.getElementById('f-cortes-ref-lista');
+  if (cont) {
+    cont.innerHTML = lista.map((r, i) => `
+      <div class="cr-fila">
+        <span class="cr-med">${r.cm} cm × ${int(r.cant)}</span>
+        <span class="cr-ml">${((r.cm * int(r.cant)) / 100).toFixed(2)} ml</span>
+        ${r.area ? `<span class="cr-area">${r.area}</span>` : ''}
+        <button type="button" class="cr-del" data-cr-del="${i}" title="Quitar este corte">×</button>
+      </div>`).join('');
+    cont.querySelectorAll('[data-cr-del]').forEach(b => {
+      b.onclick = () => quitarCorteRef(+b.dataset.crDel);
+    });
+  }
   const info = document.getElementById('f-cortes-ref-info');
   if (info) {
-    const n = STATE.refuerzoCortes.reduce((s, r) => s + r.cant, 0);
-    const ml = Math.round(STATE.refuerzoCortes.reduce((s, r) => s + r.cm * r.cant, 0)) / 100;
-    info.textContent = n ? (n + ' cortes · ' + ml.toFixed(2) + ' ml') : '';
+    const n = lista.reduce((s, r) => s + int(r.cant), 0);
+    const ml = Math.round(lista.reduce((s, r) => s + r.cm * int(r.cant), 0)) / 100;
+    info.textContent = n ? (n + ' cortes · ' + ml.toFixed(2) + ' ml') : 'Todavía no hay cortes.';
   }
-  renderAll();
+}
+
+if ($('f-cortes-ref-add')) $('f-cortes-ref-add').addEventListener('click', agregarCorteRef);
+['f-cortes-ref-cm', 'f-cortes-ref-cant'].forEach(id => {
+  const e = $(id);
+  if (e) e.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); agregarCorteRef(); } });
 });
 $('f-afuera').addEventListener('input', e => { STATE.puertasAfuera = Math.max(0, parseInt(e.target.value) || 0); renderAll(); });
 function nombreAreaUnico() {
