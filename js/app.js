@@ -911,13 +911,11 @@ function calculateMaterials() {
   if (!Object.keys(m2LamPorColor).length && m2 > 0) m2LamPorColor[STATE.color || ''] = +(m2 * 1.10).toFixed(2);
   const m2Lam = +Object.values(m2LamPorColor).reduce((s, v) => s + v, 0).toFixed(2);
 
-  // Peso por m²: factores validados contra checklists oficiales de fábrica.
-  //   STD + PATAS: 18.5 · REF + ZOCLO: 20.0 · otros: 18.0
-  let factorPeso;
-  if (STATE.modelo === 'REFORZADO' && STATE.sistema === 'ZOCLO') factorPeso = 20.0;
-  else if (STATE.modelo === 'ESTÁNDAR' && STATE.sistema === 'PATAS') factorPeso = 18.5;
-  else factorPeso = 18.0;
-  const peso = +(m2 * factorPeso).toFixed(1);
+  // Peso por m²: 18 kg para toda la línea, sin excepciones por modelo ni por
+  // terminación. Había un 20.0 para Reforzado con zoclo y un 18.5 para
+  // Estándar con patas que inflaban el peso hasta un 11%.
+  const PESO_POR_M2 = 18;
+  const peso = +(m2 * PESO_POR_M2).toFixed(1);
 
   // ─── Una línea de laminado POR CÓDIGO (color × tamaño). Cada tamaño = un código y su m². ───
   const mat = [];
