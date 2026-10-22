@@ -395,6 +395,17 @@
     pintarPendientes()
   }
 
+  /**
+   * Lo que la OC pide y todavía no tiene tipo puesto, por medida. El dibujo de
+   * corte lo usa para poder cortar apenas se sube la OC: la hoja se corta por
+   * medida, el tipo (der, izq, a muro…) no cambia el corte.
+   */
+  function porAsignar() {
+    return (STATE.ocPendientes || [])
+      .map((p) => ({ familia: p.familia, ancho: p.ancho, alto: p.alto, cant: p.cant - yaAsignadas(p) }))
+      .filter((p) => p.cant > 0)
+  }
+
   function pintarPendientes() {
     const caja = document.getElementById('oc-pendientes')
     if (!caja) return
@@ -599,12 +610,15 @@
     })
     panel.querySelector('#btn-oc-pdf-clear').onclick = () => {
       STATE.ocPendientes = []
-      pintarPendientes()
+      renderAll()
       avisar('Lista quitada. Las piezas que ya asignaste se quedan.')
     }
 
     pintarPendientes()
   }
+
+  // el dibujo de corte pregunta por acá qué falta asignar
+  window.CIP_OC = { porAsignar }
 
   // la lista se repinta sola cuando la app redibuja (por ejemplo al abrir un proyecto)
   const original = window.renderAll

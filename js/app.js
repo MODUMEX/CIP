@@ -1840,6 +1840,15 @@ function getCutAdjust() {
   };
 }
 
+// Piezas de la OC que todavía no tienen tipo (PTADER, PTAIZQ, PLLATMUR…).
+// Para cortar el tipo no hace falta: la hoja se corta por medida y el ajuste
+// depende de la familia, no de la variante. Las devuelve el lector de OC.
+function piezasOCSinTipo() {
+  const f = window.CIP_OC && window.CIP_OC.porAsignar;
+  if (typeof f !== 'function') return [];
+  try { return f() || []; } catch (e) { return []; }
+}
+
 function buildCutPieces() {
   const aj = getCutAdjust();
   const pieces = [];
@@ -1883,6 +1892,31 @@ function buildCutPieces() {
         iid, w: aw, h: ah, sec, code,
         color: CUT_COLOR_MAP[code], lamColor, origW: ancho, origH: alto,
         vetaH, noRotate: vetaH,
+      });
+    }
+  });
+
+  // Lo que la OC pide y todavía nadie asignó: entra al corte por su medida,
+  // con la familia sola de etiqueta. Al asignarle el tipo, la pieza sale de
+  // acá y entra por STATE.pieces — el total de la hoja no cambia.
+  piezasOCSinTipo().forEach((p, idx) => {
+    const cant = int(p.cant), ancho = num(p.ancho), alto = num(p.alto);
+    if (cant <= 0 || ancho <= 0 || alto <= 0) return;
+    const sec = p.familia;
+    const code = sec + '?';
+    if (!CUT_COLOR_MAP[code]) {
+      const palette = CUT_COLORS[sec] || ['#888'];
+      CUT_COLOR_MAP[code] = palette[palette.length - 1];
+    }
+    const lamColor = STATE.color || '';
+    const vetaH = !!lookupColor(lamColor).veta;
+    const dA = aj['dAncho_' + sec] || 0, dH = aj['dAlto_' + sec] || 0;
+    const aw = +(ancho + dA).toFixed(1), ah = +(alto + dH).toFixed(1);
+    for (let i = 0; i < cant; i++) {
+      pieces.push({
+        iid: `OC_${sec}_${ancho}x${alto}_${idx}__${i}`, w: aw, h: ah, sec, code,
+        color: CUT_COLOR_MAP[code], lamColor, origW: ancho, origH: alto,
+        vetaH, noRotate: vetaH, sinTipo: true,
       });
     }
   });
@@ -2688,6 +2722,13 @@ function renderCut() {
 
   const waste = totalArea - usedArea;
   const pctUse = totalArea > 0 ? ((usedArea / totalArea) * 100).toFixed(1) : '0.0';
+  const nSinTipo = pieces.filter(p => p.sinTipo).length;
+  let avisoSinTipo = '';
+  if (nSinTipo > 0) {
+    avisoSinTipo = `<div class="banner" style="margin-bottom: 14px; border-color: var(--amber); color: var(--amber);">` +
+      `<b>${nSinTipo} pieza(s) de la OC todavía sin tipo</b> — van al corte por su medida y salen marcadas ` +
+      `<b>PT? PN? PL?</b>. El corte no cambia cuando les pongás el tipo; lo que falta asignar es para la lista de materiales.</div>`;
+  }
   let warnUnplaced = '';
   if (unplaced.length > 0) {
     warnUnplaced = `<div class="banner bad" style="margin-bottom: 14px;"><b>⚠ ${unplaced.length} pieza(s) no caben:</b> ${unplaced.map(p => p.code + ' ' + p.w + '×' + p.h).join(', ')}. Activá una hoja más grande.</div>`;
@@ -2696,7 +2737,7 @@ function renderCut() {
   sheets.forEach(s => { const k = `${Math.round(s.W)}×${Math.round(s.H)}`; sheetCounts[k] = (sheetCounts[k] || 0) + 1; });
   const sheetMix = Object.entries(sheetCounts).map(([k, n]) => `${n}× ${k}cm`).join(' + ');
 
-  summaryEl.innerHTML = warnUnplaced + `
+  summaryEl.innerHTML = avisoSinTipo + warnUnplaced + `
     <div class="kpi-strip">
       <div class="kpi-cell"><div class="kpi-label">Hojas necesarias</div><div class="kpi-val" style="color: var(--cyan);">${sheets.length}</div></div>
       <div class="kpi-cell"><div class="kpi-label">Mezcla</div><div class="kpi-val" style="font-size:14px;">${sheetMix || '—'}</div></div>
@@ -4587,7 +4628,8 @@ function descargarListaPDF() {
  * la pestaña 02. Una hoja de corte por página, con su panel de datos al lado.
  */
 function descargarCortePDF() {
-  if (STATE.pieces.length === 0) {
+  // las de la OC sin tipo también se cortan, así que no hace falta STATE.pieces
+  if (STATE.pieces.length === 0 && piezasOCSinTipo().length === 0) {
     alert('No hay piezas cargadas. Cargá piezas antes de bajar el dibujo de corte.');
     return false;
   }
