@@ -4044,8 +4044,8 @@ $('f-color').addEventListener('input', e => {
   STATE.colorCode = info.code;
   renderAll();
 });
-$('f-notas').addEventListener('input', e => { STATE.notas = e.target.value; });
-$('f-oc-total').addEventListener('input', e => { STATE.ocTotal = e.target.value; renderValidation(); });
+if ($('f-notas')) $('f-notas').addEventListener('input', e => { STATE.notas = e.target.value; });
+if ($('f-oc-total')) $('f-oc-total').addEventListener('input', e => { STATE.ocTotal = e.target.value; renderValidation(); });
 
 // Verificación — delegation (cada fila tiene data-row-ancho y data-row-alto para identificar
 // la pieza específica cuando hay múltiples medidas con el mismo código)
@@ -5419,8 +5419,8 @@ function loadDemo() {
   $('f-terminacion').value = STATE.sistema;
   $('f-kap').value = STATE.kap;
   $('f-color').value = STATE.color;
-  $('f-notas').value = STATE.notas;
-  $('f-oc-total').value = STATE.ocTotal;
+  if ($('f-notas')) $('f-notas').value = STATE.notas;
+  if ($('f-oc-total')) $('f-oc-total').value = STATE.ocTotal;
   if ($('f-refuerzo')) $('f-refuerzo').value = STATE.refuerzo;
   if ($('f-oc-adicional')) $('f-oc-adicional').value = String(STATE.ocAdicional);
   actualizarCamposLinea();
