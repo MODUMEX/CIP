@@ -365,6 +365,7 @@
         }
         tapa.remove()
         prepararPestana()
+        ponerGuardarEnCapturar()
         ponerSalirArriba()
         vigilarInactividad()
         window.dispatchEvent(new CustomEvent('cip-entro'))
@@ -539,6 +540,8 @@
     const fila = el(`<div class="cip-guardar-fila" id="cip-guardar-fila">
       <button class="cip-btn" id="cip-guardar-aqui">Guardar proyecto</button>
       <button class="cip-btn gris" id="cip-guardar-aqui-nuevo">Guardar como nuevo</button>
+      <button class="cip-btn rojo" id="cip-limpiar-todo"
+        title="Deja la aplicación como recién abierta, sin cerrar la sesión">Limpiar</button>
       <span id="cip-abierto"></span>
       <span style="flex:1"></span>
       <span id="cip-guardar-aqui-msg"></span>
@@ -546,7 +549,20 @@
     banner.insertAdjacentElement('afterend', fila)
     fila.querySelector('#cip-guardar-aqui').onclick = () => void guardarDesdePantalla(abiertoId)
     fila.querySelector('#cip-guardar-aqui-nuevo').onclick = () => void guardarDesdePantalla(null)
+    fila.querySelector('#cip-limpiar-todo').onclick = limpiarTodo
     refrescarAbierto()
+  }
+
+  /**
+   * Empezar de cero: datos, piezas, OC, corte y el proyecto abierto. Se
+   * recarga la página en vez de ir borrando campo por campo, que es como se
+   * queda algo viejo pegado; la sesión sigue abierta porque vive aparte.
+   */
+  function limpiarTodo() {
+    const S = estado() || {}
+    const hay = (S.pieces || []).length || String(S.exp || '').trim() || (S.ocPendientes || []).length
+    if (hay && !confirm('¿Limpiar todo y empezar un proyecto nuevo?\n\nSe pierde lo que no hayás guardado.')) return
+    location.reload()
   }
 
   /** qué proyecto se está editando, para no guardar encima del que no era */
